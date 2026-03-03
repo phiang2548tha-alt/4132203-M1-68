@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCM Web Push Notification</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .token-box {
+            word-break: break-all;
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
+        <div class="mb-6">
+            <div class="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">FCM แจ้งเตือน</h1>
+            <p class="text-gray-600 mt-2">คลิกปุ่มด้านล่างเพื่ออนุญาตการแจ้งเตือน</p>
+        </div>
+
+        <button id="btn-permission" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
+            เปิดการแจ้งเตือน
+        </button>
+
+        <div id="token-container" class="mt-8 hidden">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 text-left">FCM Token ของคุณ:</h2>
+            <div id="token-display" class="token-box text-xs text-gray-700 text-left mb-4"></div>
+            <button onclick="copyToken()" class="text-orange-500 text-sm font-medium hover:underline">คัดลอก Token</button>
+        </div>
+
+        <div id="status-message" class="mt-4 text-sm text-gray-500"></div>
+    </div>
+
+    <!-- Firebase SDK Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
+        // 1. แทนที่ค่าเหล่านี้ด้วย Firebase Config จากโปรเจกต์ของคุณ
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const VAPID_KEY = "YOUR_PUBLIC_VAPID_KEY"; // ได้จาก Project Settings > Cloud Messaging > Web Push certificates
+
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+
+        const btnPermission = document.getElementById('btn-permission');
+        const tokenContainer = document.getElementById('token-container');
+        const tokenDisplay = document.getElementById('token-display');
+        const statusMsg = document.getElementById('status-message');
+
+        // ฟังก์ชันขออนุญาตและรับ Token
+        async function requestPermission() {
+            statusMsg.innerText = "กำลังขอสิทธิ์การแจ้งเตือน...";
+            
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+                    if (token) {
+                        tokenDisplay.innerText = token;
+                        tokenContainer.classList.remove('hidden');
+                        btnPermission.classList.add('hidden');
+                        statusMsg.innerText = "ลงทะเบียนสำเร็จ!";
+                        console.log('Token:', token);
+                    } else {
+                        statusMsg.innerText = "ไม่สามารถรับ Token ได้";
+                    }
+                } else {
+                    statusMsg.innerText = "ผู้ใช้ปฏิเสธการแจ้งเตือน";
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                statusMsg.innerText = "เกิดข้อผิดพลาด: " + error.message;
+            }
+        }
+
+        // รับข้อความขณะที่หน้าจอเปิดอยู่ (Foreground)
+        onMessage(messaging, (payload) => {
+            console.log('Message received. ', payload);
+            const { title, body } = payload.notification;
+            // แสดงแจ้งเตือนแบบกำหนดเองเพราะ browser จะไม่โชว์แบบ native ถ้าหน้าเว็บเปิดอยู่
+            new Notification(title, { body });
+        });
+
+        btnPermission.addEventListener('click', requestPermission);
+
+        window.copyToken = function() {
+            const token = tokenDisplay.innerText;
+            navigator.clipboard.writeText(token).then(() => {
+                alert("คัดลอก Token เรียบร้อยแล้ว!");
+            });
+        }
+    </script>
+</body>
+</html>
